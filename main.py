@@ -1,78 +1,59 @@
+import random
+
 __author__ = 'Administrator'
 
-import pygame
 from pygame.locals import *
+from Class import *
 from sys import exit
 
 
-class Bullet(pygame.sprite.Sprite):
-    def __init__(self, init_pos):
-        pygame.sprite.Sprite.__init__(self)
-        self.image = pygame.image.load('Bullet.gif')
-        self.rect = self.image.get_rect()
-        self.rect.midtop = init_pos
-        self.speed = 10
+background_image_filename = 'resources/image/gamestart.png'
+start_image = 'resources/image/bg2.png'
+dead_image = 'resources/image/dead.png'
 
-    def move(self):
-        self.rect.centerx += self.speed
-        # screen.blit(self.image,self.rect)
-        #pygame.display.update()
-
-
-class Player(pygame.sprite.Sprite):
-    def __init__(self):
-        pygame.sprite.Sprite.__init__(self)
-        self.image = pygame.image.load('right.png')
-        self.rect = self.image.get_rect()
-        self.rect.center = first_location
-        # print self.rect.center
-
-    def turn(self, distance):
-        center = self.rect.center
-        self.image = pygame.image.load(Player_image[distance])
-        self.rect = self.image.get_rect()
-        self.rect.center = center
-
-    def move(self, temper):
-        temper = int(temper)
-        if temper == 0:
-            for temp in range(1, 10):
-                self.rect.centerx -= 3
-            print self.rect.centerx
-        if temper == 1:
-            self.rect.centerx += 30
-            print self.rect.centery
-        if temper == 2:
-            self.rect.centery -= 30
-            print self.rect.centery
-        if temper == 3:
-            self.rect.centery += 30
-        if 0 > self.rect.centerx or self.rect.centerx > screen.get_width():
-            self.rect.centerx = -self.rect.centerx
-        if 0 > self.rect.centery or self.rect.centery > screen.get_height():
-            self.rect.centery = -self.rect.centery
-
-    def shoot(self):
-        bullet = Bullet(self.rect.midtop)
-        Bullets.append(bullet)
-
-
-background_image_filename = 'gamestart.png'
-start_image = 'bg2.png'
-Player_image = ['left.png', 'right.png']
+Score = 0
 x = 0
 y = 0
 pygame.init()
-screen = pygame.display.set_mode([1365, 768])
-first_location = [screen.get_width() / 2, screen.get_height() / 2]
+pygame.mixer.init()
 background = pygame.image.load(background_image_filename).convert()
 pygame.key.set_repeat(100, 100)
 clock = pygame.time.Clock()
+
+pygame.mixer.music.load("resources/music/butterflylove.mp3")
+pygame.mixer.music.set_volume(0.3)
+pygame.mixer.music.play(-1)
+
+button_music = pygame.mixer.Sound("resources/music/bullet.wav")
+button_music.set_volume(10)
+# music
+
+def Waitkey():
+    while True:
+        for event in pygame.event.get():
+            if event.type == QUIT:
+                exit()
+            if event.type == KEYDOWN:
+                if event.key == K_ESCAPE:  # pressing escape quits
+                    exit()
+                if event.key == K_RETURN:
+                    return
+# font
 flag = 0
-Bullets = []
+button_flag = 0
+enemies = []
+enemies_down = []
+enemy_frequency = 0
 running = True
 while running:
     clock.tick(60)
+    if enemy_frequency % 50 == 0:
+        enemy1_pos = [screen.get_width(), random.randint(0, screen.get_height())]
+        enemy1 = Enemy(enemy1_pos)
+        enemies.append(enemy1)
+    enemy_frequency += 1
+    if enemy_frequency >= 100:
+        enemy_frequency = 0
     for event in pygame.event.get():
         if event.type == QUIT:
             exit()
@@ -90,28 +71,66 @@ while running:
                 if flag == 1:
                     player.turn(1)
                     player.move(1)
+                    button_flag = 0
                     # flag == 1
+                    print "buttonflag" and button_flag
             elif event.key == pygame.K_LEFT:
                 if flag == 1:
                     player.turn(0)
                     player.move(0)
+                    button_flag = 1
+                    print "buttonflag" and button_flag
             elif event.key == pygame.K_UP:
                 if flag == 1:
+                    player.turn(3)
                     player.move(2)
+                    button_flag = 3
                     # flag == 1
             elif event.key == pygame.K_DOWN:
                 if flag == 1:
+                    player.turn(2)
                     player.move(3)
+                    button_flag = 2
             elif event.key == pygame.K_x:
                 if flag == 1:
                     player.shoot()
+                    button_music.play()
                     print("shoot")
     screen.blit(background, (x, y))
     if flag == 1:
+        score_font = pygame.font.Font(None, 50)
+        score_surf = score_font.render("Score: " + str(Score), 1, (0, 0, 0))
+        screen.blit(score_surf, [10, 10])
         screen.blit(player.image, player.rect)
+        for enemy in enemies:
+            enemy.move()
+            screen.blit(enemy.image, enemy.rect)
+            if enemy.rect.left < 0:
+                enemies.remove(enemy)
+                break
+            if pygame.sprite.collide_circle(enemy, player):
+                enemies_down.append(enemy)
+                enemies.remove(enemy)
+                # player.is_hit = True
+                Score -= 1
+                # Game_Over()
+                break
         for bullet in Bullets:
-            bullet.move()
+            bullet.move(button_flag)
             screen.blit(bullet.image, bullet.rect)
+            for enemy in enemies:
+                if pygame.sprite.collide_circle(bullet, enemy):
+                    enemies_down.append(enemy)
+                    enemies.remove(enemy)
+                    Bullets.remove(bullet)
+                    Score += 1
+                    break
+            if bullet is not None:
+                if bullet.rect.bottom < 0 or bullet.rect.centerx > screen.get_width() or bullet.rect.centerx < 0:
+                    Bullets.remove(bullet)
+        if Score < -10:
+            background_dead = pygame.image.load(dead_image).convert()
+            screen.blit(background_dead, (x, y))
     pygame.display.update()
     if flag == 0:
         pygame.display.update()
